@@ -1,0 +1,86 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: notification-api-service
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/notifications}
+    username: ${API_DB_USER:api_svc}
+    password: ${API_DB_PASSWORD}
+    hikari:
+      schema: api
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    schemas: api
+    default-schema: api
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true   # unknown JSON fields => 400 (mass-assignment protection)
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        max.block.ms: 3000
+        request.timeout.ms: 3000
+        delivery.timeout.ms: 6000
+    consumer:
+      group-id: notification-api
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      ack-mode: record
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    ttl: 1h
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:8080}
+  rate-limit:
+    general-per-minute: 120
+    auth-per-minute: 20
+  outbox:
+    poll-interval-ms: 500
+    batch-size: 50
+    max-attempts: 50
+    send-timeout: 5s
+  seed:
+    enabled: ${SEED_DEMO_USERS:false}
+    password: ${DEMO_PASSWORD:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.example.notify: INFO
+  pattern:
+    level: "%5p [%X{correlationId:-}]"

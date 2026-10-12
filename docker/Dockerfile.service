@@ -1,0 +1,17 @@
+# Builds one Spring Boot module. Usage: docker build -f docker/Dockerfile.service --build-arg MODULE=notification-api-service .
+FROM maven:3.9.9-eclipse-temurin-21 AS build
+ARG MODULE
+WORKDIR /src
+COPY pom.xml .
+COPY common common
+COPY notification-api-service notification-api-service
+COPY notification-worker-service notification-worker-service
+RUN mvn -B -q -pl ${MODULE} -am -DskipTests package
+
+FROM eclipse-temurin:21-jre
+ARG MODULE
+RUN useradd --system --create-home appuser
+WORKDIR /app
+COPY --from=build /src/${MODULE}/target/${MODULE}-1.0.0.jar app.jar
+USER appuser
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]

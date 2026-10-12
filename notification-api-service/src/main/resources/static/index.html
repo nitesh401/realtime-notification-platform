@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notification Center</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Auth -->
+  <main id="auth-view" class="card auth">
+    <h1>Notification Center</h1>
+    <p class="muted">Sign in to see live notifications. Local demo users are created when <code>SEED_DEMO_USERS=true</code>
+       (alice, bob, admin, bounce; password = your <code>DEMO_PASSWORD</code>).</p>
+    <div class="tabs" role="tablist">
+      <button id="tab-login" class="tab active" type="button">Sign in</button>
+      <button id="tab-register" class="tab" type="button">Register</button>
+    </div>
+    <div class="form">
+      <label>Username <input id="auth-username" autocomplete="username" maxlength="32"></label>
+      <label id="email-row" hidden>Email <input id="auth-email" type="email" autocomplete="email"></label>
+      <label>Password <input id="auth-password" type="password" autocomplete="current-password" maxlength="72"></label>
+      <button id="auth-submit" class="primary" type="button">Sign in</button>
+      <p id="auth-error" class="error" role="alert" hidden></p>
+    </div>
+  </main>
+
+  <!-- App -->
+  <div id="app-view" hidden>
+    <header class="topbar">
+      <strong>Notification Center</strong>
+      <span id="conn" class="conn conn-off" title="WebSocket status">disconnected</span>
+      <span class="spacer"></span>
+      <div class="bell-wrap">
+        <button id="bell" class="bell" type="button" aria-label="Notifications" aria-expanded="false">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5-6.7V3a2 2 0 1 0-4 0v1.3A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg>
+          <span id="badge" class="badge" hidden>0</span>
+        </button>
+        <div id="dropdown" class="dropdown" hidden>
+          <div class="dropdown-head">
+            <strong>Latest</strong>
+            <button id="dd-readall" class="link" type="button">Mark all read</button>
+          </div>
+          <ul id="dd-list" class="nlist"></ul>
+          <p id="dd-empty" class="muted pad" hidden>You're all caught up.</p>
+        </div>
+      </div>
+      <span id="whoami" class="muted"></span>
+      <button id="logout" class="link" type="button">Log out</button>
+    </header>
+
+    <nav class="tabs main-tabs">
+      <button class="tab active" data-view="history" type="button">History</button>
+      <button class="tab" data-view="prefs" type="button">Preferences</button>
+      <button class="tab" data-view="dev" type="button">Developer panel</button>
+    </nav>
+
+    <main class="content">
+      <section id="view-history" class="card">
+        <div class="filters">
+          <label>Category
+            <select id="f-category"><option value="">All</option><option>INFO</option><option>SUCCESS</option><option>WARNING</option><option>ERROR</option></select>
+          </label>
+          <label>Status
+            <select id="f-status"><option value="ALL">All</option><option value="UNREAD">Unread</option><option value="READ">Read</option></select>
+          </label>
+          <label class="inline"><input id="f-archived" type="checkbox"> Include archived</label>
+          <button id="f-reload" class="secondary" type="button">Reload</button>
+        </div>
+        <p id="history-state" class="muted pad" hidden></p>
+        <ul id="history-list" class="nlist"></ul>
+        <div class="pager">
+          <button id="prev" class="secondary" type="button">Previous</button>
+          <span id="page-info" class="muted"></span>
+          <button id="next" class="secondary" type="button">Next</button>
+        </div>
+      </section>
+
+      <section id="view-prefs" class="card" hidden>
+        <h2>Preferences</h2>
+        <p class="muted">Mandatory security/system notifications ignore these switches.</p>
+        <div class="form">
+          <fieldset><legend>Channels</legend>
+            <label class="inline"><input id="p-inApp" type="checkbox"> In-app</label>
+            <label class="inline"><input id="p-email" type="checkbox"> Email</label>
+          </fieldset>
+          <fieldset><legend>Categories</legend>
+            <label class="inline"><input id="p-info" type="checkbox"> Info</label>
+            <label class="inline"><input id="p-success" type="checkbox"> Success</label>
+            <label class="inline"><input id="p-warning" type="checkbox"> Warning</label>
+            <label class="inline"><input id="p-error" type="checkbox"> Error</label>
+          </fieldset>
+          <button id="p-save" class="primary" type="button">Save preferences</button>
+          <p id="p-msg" class="muted" role="status"></p>
+        </div>
+      </section>
+
+      <section id="view-dev" class="card" hidden>
+        <h2>Developer panel</h2>
+        <p class="muted">Calls the real <code>POST /api/v1/notifications</code>. Non-admins can only notify themselves.</p>
+        <div class="form">
+          <label>Recipients (comma-separated usernames, blank = me; admin only for others)
+            <input id="d-recipients" placeholder="alice, bob">
+          </label>
+          <label>Template
+            <select id="d-template"><option value="">Custom message</option></select>
+          </label>
+          <div id="d-vars"></div>
+          <div id="d-custom">
+            <label>Subject <input id="d-subject" maxlength="255" value="Build finished"></label>
+            <label>Body <textarea id="d-body" rows="3" maxlength="4000">Your build #42 completed successfully.</textarea></label>
+            <label>Category
+              <select id="d-category"><option>INFO</option><option>SUCCESS</option><option>WARNING</option><option>ERROR</option></select>
+            </label>
+          </div>
+          <fieldset><legend>Channels</legend>
+            <label class="inline"><input id="d-inapp" type="checkbox" checked> In-app</label>
+            <label class="inline"><input id="d-email" type="checkbox"> Email (MailHog)</label>
+          </fieldset>
+          <label>Idempotency-Key (optional; send twice to see de-duplication)
+            <input id="d-key" placeholder="demo-1">
+          </label>
+          <button id="d-send" class="primary" type="button">Send notification</button>
+          <p id="d-msg" class="muted" role="status"></p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
