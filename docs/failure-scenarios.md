@@ -22,16 +22,16 @@ sequenceDiagram
   participant B as Browser
   R->>K: notification.events (key=recipient) then mark PUBLISHED
   K->>W: event
-  W->>W: delivery_record IN_APP -> PROCESSING, attempt HANDOFF
+  W->>W: set IN_APP delivery to PROCESSING and record HANDOFF
   W->>K: notification.realtime
   K->>G: command
   G->>B: STOMP /user/queue/notifications (if connected)
-  G->>K: realtime-result PUSHED | NO_ACTIVE_SESSION
-  K->>W: result -> delivery SENT
+  G->>K: realtime-result PUSHED or NO_ACTIVE_SESSION
+  K->>W: result; set delivery to SENT
   B->>G: /app/ack
   G->>K: realtime-result ACKED
-  K->>W: -> delivery DELIVERED
-  W->>K: notification.status (aggregate)
+  K->>W: result; set delivery to DELIVERED
+  W->>K: publish aggregate notification.status
 ```
 **Retry and dead-letter**
 ```mermaid
@@ -40,12 +40,13 @@ sequenceDiagram
   participant W as Worker
   participant M as SMTP
   K->>W: notification.events
-  W->>M: send (fails) ; attempt FAILURE, delivery RETRYING
-  W->>K: -> events-retry-0 (backoff)
-  K->>W: retry-0, fails again -> retry-1
-  K->>W: last attempt fails -> events-dlt
-  W->>W: DLT handler: delivery DEAD_LETTERED, dead_letters row, status event
-  Note over W: admin POST /admin/dead-letters/{id}/replay republishes to notification.events
+  W->>M: send email; record FAILURE and set delivery to RETRYING
+  W->>K: publish to events-retry-0 after backoff
+  K->>W: retry-0 fails; retry on retry-1
+  K->>W: final attempt fails; publish to events-dlt
+  W->>W: DLT handler sets DEAD_LETTERED and writes dead_letters row
+  W->>K: publish status event
+  Note over W: Admin can replay a dead letter to notification.events
 ```
 **Consumer crash**
 ```mermaid
@@ -56,7 +57,7 @@ sequenceDiagram
   K->>W1: event (offset not yet committed)
   W1--xW1: crash mid-processing
   K->>W2: rebalance, same event redelivered
-  W2->>W2: delivery already SENT? skip : resume attempt
+  W2->>W2: Skip if delivery is SENT; otherwise resume attempt
 ```
 
 ## Scenario table
